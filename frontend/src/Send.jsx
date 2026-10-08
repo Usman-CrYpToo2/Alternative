@@ -11,8 +11,6 @@ const Send = ({contract}) => {
     event.preventDefault();
     if(contract){
       try{
-        // const val = {value : ethers.utils.parseEther()}
-        // await contract.send("ali", "hello ali", "0xb65F587C74a3E19B3f263038038b015237BA445d",val);
         const val = {value : ethers.utils.parseEther(msg.value)};
         await contract.send(msg.name, msg.message,val);
         console.log(msg);

@@ -1,0 +1,5 @@
+# Netlify builds the React app from source, so the build folder never needs to be committed.
+[build]
+  base = "frontend"
+  command = "CI= npm run build"   # CI= stops lint warnings from failing the build
+  publish = "build"

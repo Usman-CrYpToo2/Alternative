@@ -1,5 +1,5 @@
 import React from 'react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 const Login = ({contract}) => {
      const[user, setUser] = useState(null);
      const[name,setName] = useState(null);

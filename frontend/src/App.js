@@ -68,7 +68,7 @@ const App = () => {
         </a>
 
         <a  className="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">
-        <img className="bi me-2" width="40" height="32" src='https://s2.coinmarketcap.com/static/img/coins/200x200/21916.png'></img>
+        <img className="bi me-2" width="40" height="32" alt="Alternative logo" src='https://s2.coinmarketcap.com/static/img/coins/200x200/21916.png'></img>
         <span className="fs-4 text-primary">Alternative</span>
       </a>
 

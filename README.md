@@ -1,16 +1,61 @@
-# Alternative-dapp
- Dapp you are referring to is a decentralized application that simplifies the process of sending Ether from one wallet to another by using a unique username instead of a wallet address. It is built on a smart contract and can be accessed through the Metamask browser extension or app
-I am excited to announce my latest project, Alternative, a decentralized application (Dapp) that solves a major problem faced by users when sending Ether from one wallet to another. Typically, users struggle to remember the unique address of the recipient and often forget why they sent the Ether in the first place. Alternative addresses this challenge by allowing users to send Ether by providing the recipient's unique username.
+# Alternative
 
-Alternative is built on a smart contract that enables users to log in with their unique name, which is then mapped to their Ethereum wallet address. Once a user has logged in, they can send Ether to another user by simply entering the recipient's username and a message to accompany the transaction. The smart contract captures all transaction details, and the sent and received data can be viewed on the Alternative Dapp.
+A dApp for sending ETH to a **username** instead of a wallet address, with a short message attached. Built in 2023 as one of my first full-stack Ethereum projects.
 
-To ensure a seamless user experience, please note that when you try to log in to Alternative and the login does not work, it could be because you are using a username that is already being used by another user. Please remember to use a unique username to avoid this issue.
+**Live app:** [usman-alternative.netlify.app](https://usman-alternative.netlify.app) (Sepolia testnet, needs MetaMask)
+**Contract:** [`0xB3562D85B52dA58008b09d050BC45A0fEe79534d`](https://sepolia.etherscan.io/address/0xB3562D85B52dA58008b09d050BC45A0fEe79534d) on Sepolia
 
-Additionally, if you are trying to use Alternative from a smartphone, please make sure to use the Metamask explorer browser for optimal performance.
+## How it works
 
-The simplicity and convenience of Alternative make it a game-changer in the crypto space, eliminating the need to remember lengthy wallet addresses and offering a more personalized approach to transactions. The Dapp has been deployed on the Sepolia test network and can be accessed through the Metamask browser extension or app.
+1. **Sign up.** Connect MetaMask and pick a username. The contract maps the username to your address, and your address back to the username. Each address gets one username, and each username can only be taken once.
+2. **Send.** Enter a recipient's username, an amount of ETH, and a message. The contract looks up the recipient's address and forwards the ETH.
+3. **History.** The contract records every payment for both sides, so each user can see what they received and what they sent, with the message, amount, and time.
 
-To get started with Alternative, download Metamask, connect to the Sepolia test network, and log in with a unique username. You can then send Ether to other users by entering their username and accompanying message. Please note that the recipient must be logged in to the Dapp and must have provided their username during the signup process.
+## Project structure
 
-I invite you to try out Alternative and experience the future of decentralized transactions. Check out the Dapp at https://lnkd.in/dRWGn4fv
-.
+| Path | What it is |
+|---|---|
+| [`contracts/message.sol`](contracts/message.sol) | The smart contract (`chai`) |
+| [`scripts/final.js`](scripts/final.js) | Hardhat deploy script |
+| [`frontend/`](frontend) | React app (ethers.js v5, Bootstrap) |
+| [`netlify.toml`](netlify.toml) | Builds and deploys the frontend on Netlify |
+
+## Running it locally
+
+**Frontend** (talks to the contract already deployed on Sepolia):
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+**Deploying your own copy of the contract:**
+
+```bash
+npm install
+cp .env.example .env    # fill in your Alchemy key and a test wallet's private key
+npx hardhat run scripts/final.js --network sepolia
+```
+
+Then put the new address into `frontend/src/App.js`.
+
+## Known limitations
+
+Reviewing this 2023 code now, as a smart contract auditor, these are the issues I would report. The contract above is left exactly as deployed, so the repo matches what runs on Sepolia.
+
+| Severity | Issue |
+|---|---|
+| Medium | **Smart contract wallets cannot receive.** `send` uses `transfer`, which forwards only 2,300 gas. Wallets like Safe need more, so payments to them revert. |
+| Medium | **Usernames can be front-run and squatted.** Anyone watching the mempool can register a name first, and a name can never be released or changed. |
+| Low | **An empty username can be registered.** `login("")` passes both checks and claims the empty name. |
+| Low | **State is updated after sending ETH.** This is only safe because `transfer` limits gas. Switching to `call` without reordering would open a reentrancy bug. |
+| Low | **History grows forever.** Each payment adds to two arrays that `callData` returns in full, so it gets slower and can eventually fail for very active users. |
+| Info | **Messages are public.** `private` stops other contracts from reading the mappings, but anyone can read the data straight from chain storage. |
+| Info | **Confusing data model.** In the recipient's history, the field named `receiver` actually holds the sender's address. |
+
+A rewrite would use `call` with checks-effects-interactions, reject empty names, add a commit-reveal step for name registration, and emit events for history instead of storing it in arrays.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

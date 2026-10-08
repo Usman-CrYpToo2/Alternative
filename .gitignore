@@ -1,0 +1,9 @@
+node_modules/
+.env
+cache/
+artifacts/
+frontend/build/
+frontend/src/Contract/build-info/
+*.dbg.json
+coverage/
+.DS_Store
