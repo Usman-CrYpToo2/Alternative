@@ -1,28 +1,41 @@
 # Alternative
 
-A dApp for sending ETH to a **username** instead of a wallet address, with a short message attached. Built in 2023 as one of my first full-stack Ethereum projects.
+Username-addressed ETH transfers. Users register a unique handle bound to their address, then send ETH with an attached message by handle instead of by address. Both parties can query their sent and received history.
 
-**Live app:** [usman-alternative.netlify.app](https://usman-alternative.netlify.app) (Sepolia testnet, needs MetaMask)
-**Contract:** [`0xB3562D85B52dA58008b09d050BC45A0fEe79534d`](https://sepolia.etherscan.io/address/0xB3562D85B52dA58008b09d050BC45A0fEe79534d) on Sepolia
+> [!WARNING]
+> Testnet deployment of educational code. Unaudited, with known issues documented under [Security](#security).
 
-## How it works
+## Deployments
 
-1. **Sign up.** Connect MetaMask and pick a username. The contract maps the username to your address, and your address back to the username. Each address gets one username, and each username can only be taken once.
-2. **Send.** Enter a recipient's username, an amount of ETH, and a message. The contract looks up the recipient's address and forwards the ETH.
-3. **History.** The contract records every payment for both sides, so each user can see what they received and what they sent, with the message, amount, and time.
+| Network | Component | Location |
+|---|---|---|
+| Sepolia | Contract (`chai`) | [`0xB3562D85B52dA58008b09d050BC45A0fEe79534d`](https://sepolia.etherscan.io/address/0xB3562D85B52dA58008b09d050BC45A0fEe79534d) |
+| | Frontend | [usman-alternative.netlify.app](https://usman-alternative.netlify.app) |
 
-## Project structure
+## Architecture
 
-| Path | What it is |
+The contract maintains two mappings for the handle registry (`address → name`, `name → address`) and two per-address arrays of payment records (received and sent).
+
+| Function | Behaviour |
 |---|---|
-| [`contracts/message.sol`](contracts/message.sol) | The smart contract (`chai`) |
-| [`scripts/final.js`](scripts/final.js) | Hardhat deploy script |
-| [`frontend/`](frontend) | React app (ethers.js v5, Bootstrap) |
-| [`netlify.toml`](netlify.toml) | Builds and deploys the frontend on Netlify |
+| `login(name)` | Binds `name` to `msg.sender`. One handle per address; each handle is unique. |
+| `send(name, message)` | Resolves `name`, forwards `msg.value`, and appends a record to the sender's and recipient's histories. |
+| `callData()` | Returns the caller's received and sent records. |
 
-## Running it locally
+The frontend is a React application using ethers.js v5 against MetaMask.
 
-**Frontend** (talks to the contract already deployed on Sepolia):
+## Repository Structure
+
+| Path | Contents |
+|---|---|
+| [`contracts/message.sol`](contracts/message.sol) | Contract source, not modified since deployment |
+| [`scripts/final.js`](scripts/final.js) | Hardhat deployment script |
+| [`frontend/`](frontend) | React application |
+| [`netlify.toml`](netlify.toml) | Frontend build configuration |
+
+## Usage
+
+Frontend, against the existing Sepolia deployment:
 
 ```bash
 cd frontend
@@ -30,32 +43,44 @@ npm install
 npm start
 ```
 
-**Deploying your own copy of the contract:**
+Deploying a new instance:
 
 ```bash
 npm install
-cp .env.example .env    # fill in your Alchemy key and a test wallet's private key
+cp .env.example .env   # Alchemy key and deployer private key
 npx hardhat run scripts/final.js --network sepolia
 ```
 
-Then put the new address into `frontend/src/App.js`.
+Update the address in `frontend/src/App.js` after deploying.
 
-## Known limitations
+## Security
 
-Reviewing this 2023 code now, as a smart contract auditor, these are the issues I would report. The contract above is left exactly as deployed, so the repo matches what runs on Sepolia.
+Self-review of the deployed contract. Findings are acknowledged and left unfixed so the source continues to match the deployment.
 
-| Severity | Issue |
-|---|---|
-| Medium | **Smart contract wallets cannot receive.** `send` uses `transfer`, which forwards only 2,300 gas. Wallets like Safe need more, so payments to them revert. |
-| Medium | **Usernames can be front-run and squatted.** Anyone watching the mempool can register a name first, and a name can never be released or changed. |
-| Low | **An empty username can be registered.** `login("")` passes both checks and claims the empty name. |
-| Low | **State is updated after sending ETH.** This is only safe because `transfer` limits gas. Switching to `call` without reordering would open a reentrancy bug. |
-| Low | **History grows forever.** Each payment adds to two arrays that `callData` returns in full, so it gets slower and can eventually fail for very active users. |
-| Info | **Messages are public.** `private` stops other contracts from reading the mappings, but anyone can read the data straight from chain storage. |
-| Info | **Confusing data model.** In the recipient's history, the field named `receiver` actually holds the sender's address. |
+| ID | Severity | Title |
+|---|---|---|
+| M-01 | Medium | `transfer` gas stipend prevents payments to contract wallets |
+| M-02 | Medium | Handle registration can be front-run; handles are permanent |
+| L-01 | Low | Empty string accepted as a handle |
+| L-02 | Low | State updated after the external call |
+| L-03 | Low | Unbounded history arrays |
+| I-01 | Info | Messages are publicly readable from storage |
+| I-02 | Info | `receiver` field holds the sender in recipient records |
 
-A rewrite would use `call` with checks-effects-interactions, reject empty names, add a commit-reveal step for name registration, and emit events for history instead of storing it in arrays.
+**M-01.** `send` forwards ETH with `transfer`, which caps the callee at 2,300 gas. Smart contract wallets such as Safe exceed this in their `receive` path, so payments to them revert. *Recommendation:* use `call` with checks-effects-interactions.
+
+**M-02.** `login` is first-come-first-served and visible in the mempool, so a pending registration can be front-run. There is no way to release or transfer a handle. *Recommendation:* commit-reveal registration and an explicit release path.
+
+**L-01.** `login("")` satisfies both checks and binds the empty handle. *Recommendation:* require a non-empty name.
+
+**L-02.** Records are written after the ETH transfer. This is safe only because `transfer` limits gas; replacing it with `call` without reordering introduces reentrancy. *Recommendation:* update state before the external call.
+
+**L-03.** Each payment appends to two arrays that `callData` returns in full, so the call grows linearly and will eventually exceed RPC limits for active users. *Recommendation:* emit events and index history off-chain.
+
+**I-01.** Records are stored in `private` mappings. `private` restricts access from other contracts only; all data is readable via `eth_getStorageAt`.
+
+**I-02.** In the recipient's record, the field named `receiver` stores `msg.sender`. The data model should use distinct `from` and `to` fields.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [`LICENSE`](LICENSE).
