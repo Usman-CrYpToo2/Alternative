@@ -2,9 +2,6 @@
 
 Username-addressed ETH transfers. Users register a unique handle bound to their address, then send ETH with an attached message by handle instead of by address. Both parties can query their sent and received history.
 
-> [!WARNING]
-> Testnet deployment of educational code. Unaudited, with known issues documented under [Security](#security).
-
 ## Deployments
 
 | Network | Component | Location |
@@ -56,6 +53,10 @@ Update the address in `frontend/src/App.js` after deploying.
 ## Security
 
 A self-review of the deployed contract found 7 issues (2 medium, 3 low, 2 informational). They are acknowledged and left unfixed so the source matches the deployment. See [`audits/2026-10-self-review.md`](audits/2026-10-self-review.md).
+
+## Safety
+
+Not audited by a third party. Provided as is, without warranty. The contract is deployed on Sepolia testnet only.
 
 ## License
 
